@@ -130,3 +130,9 @@ The test script validates:
 - **Milestone 5**: Swagger API documentation
 - **Milestone 6**: Frontend dashboards
 - **Milestone 7**: Docker containerization & GCP deployment
+
+## Documentation
+
+- **[CHANGELOG.md](CHANGELOG.md)** - Detailed project history and milestone progress
+- **[CI Documentation](.github/CI_README.md)** - CI/CD setup and testing guide
+- **[Project Instructions](.github/copilot-instructions.md)** - Complete project requirements

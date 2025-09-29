@@ -79,7 +79,7 @@ jobs:
 
     - name: Run tests
       run: |
-        python test_milestone1.py
+        pytest tests
 
     - name: Check Flask app logs (on failure)
       if: failure()
