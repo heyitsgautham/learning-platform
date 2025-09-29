@@ -14,11 +14,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'services', 'course_serv
 def test_hateoas_links():
     """Test HATEOAS link generation"""
     # Import from the course service
-    import sys
-    import os
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'services', 'course_service'))
-    
-    from routes.courses import add_hateoas_links
+    from services.course_service.routes.courses import add_hateoas_links
     
     # Test course data
     course_dict = {

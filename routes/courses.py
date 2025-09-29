@@ -1,9 +1,3 @@
-# Re-export add_hateoas_links for test compatibility
-try:
-    from services.course_service.routes.courses import add_hateoas_links
-except ImportError:
-    # If running in the context where services is not available, skip
-    pass
 from flask import Blueprint, request, jsonify, session
 from middleware.rbac import require_auth, require_role, require_roles, get_current_user
 
