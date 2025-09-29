@@ -1,0 +1,140 @@
+name: CI - Smart Learning Platform
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: learning_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Set up environment variables
+      run: |
+        cp .env.example .env
+        sed -i 's/postgresql:\/\/username:password@localhost:5432\/learning_platform/postgresql:\/\/postgres:postgres@localhost:5432\/learning_platform/' .env
+
+    - name: Wait for PostgreSQL
+      run: |
+        until pg_isready -h localhost -p 5432 -U postgres; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+
+    - name: Test database connection
+      run: |
+        PGPASSWORD=postgres psql -h localhost -p 5432 -U postgres -d learning_platform -c "SELECT version();"
+
+    - name: Start Flask application in background
+      run: |
+        python app.py &
+        echo $! > flask.pid
+        sleep 10  # Wait for Flask app to start
+      env:
+        FLASK_ENV: development
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/learning_platform
+        ANALYTICS_API_KEY: validKey
+
+    - name: Wait for Flask app to be ready
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:5001/; do sleep 2; done'
+
+    - name: Run tests
+      run: |
+        python test_milestone1.py
+
+    - name: Check Flask app logs (on failure)
+      if: failure()
+      run: |
+        if [ -f flask.pid ]; then
+          PID=$(cat flask.pid)
+          if ps -p $PID > /dev/null; then
+            echo "Flask app is still running with PID $PID"
+            kill $PID || true
+          fi
+        fi
+        
+    - name: Test health endpoint directly
+      run: |
+        curl -f http://localhost:5001/ || echo "Health endpoint failed"
+
+    - name: Test analytics endpoint without API key
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5001/analytics)
+        if [ "$response" -eq 403 ]; then
+          echo "✅ Analytics endpoint correctly rejected request without API key"
+        else
+          echo "❌ Expected 403, got $response"
+          exit 1
+        fi
+
+    - name: Test analytics endpoint with wrong API key
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5001/analytics?apiKey=wrongKey")
+        if [ "$response" -eq 403 ]; then
+          echo "✅ Analytics endpoint correctly rejected request with wrong API key"
+        else
+          echo "❌ Expected 403, got $response"
+          exit 1
+        fi
+
+    - name: Test analytics endpoint with correct API key
+      run: |
+        response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:5001/analytics?apiKey=validKey")
+        if [ "$response" -eq 200 ]; then
+          echo "✅ Analytics endpoint correctly granted access with valid API key"
+          curl -s "http://localhost:5001/analytics?apiKey=validKey"
+        else
+          echo "❌ Expected 200, got $response"
+          exit 1
+        fi
+
+    - name: Stop Flask application
+      if: always()
+      run: |
+        if [ -f flask.pid ]; then
+          PID=$(cat flask.pid)
+          if ps -p $PID > /dev/null; then
+            kill $PID || true
+            sleep 2
+          fi
+          rm -f flask.pid
+        fi
