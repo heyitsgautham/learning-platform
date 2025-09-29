@@ -2,9 +2,11 @@ from flask import Flask, request, jsonify
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from flask_swagger_ui import get_swaggerui_blueprint
 from models.database import db, init_db
 from routes.auth import auth_bp, init_oauth
 from routes.users import users_bp
+from swagger_spec import get_swagger_spec
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +34,33 @@ def create_app():
     oauth, google = init_oauth(app)
     auth_bp.oauth = oauth
     auth_bp.google = google
+    
+    # Swagger UI configuration
+    SWAGGER_URL = '/docs'
+    API_URL = '/swagger.json'
+    
+    # Create Swagger UI blueprint
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        SWAGGER_URL,
+        API_URL,
+        config={
+            'app_name': "User Service API",
+            'supportedSubmitMethods': ['get', 'post', 'put', 'delete'],
+            'docExpansion': 'list',
+            'defaultModelsExpandDepth': 2,
+            'defaultModelExpandDepth': 2,
+            
+        }
+    )
+    
+    # Register Swagger UI blueprint (no url_prefix needed since it's already in SWAGGER_URL)
+    app.register_blueprint(swaggerui_blueprint)
+    
+    # Swagger spec endpoint
+    @app.route('/swagger.json')
+    def swagger_spec():
+        """Return the OpenAPI specification"""
+        return jsonify(get_swagger_spec())
     
     # Global middleware: Log every request
     @app.before_request

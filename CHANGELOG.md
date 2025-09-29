@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.5.0] - 2025-09-30 - Milestone 5: API Documentation
+
+### Added
+
+#### 📚 **Swagger UI Integration**
+- **Interactive API Documentation**: Swagger UI available at `/docs` for both User Service and Course Service
+- **OpenAPI 3.0 Specifications**: Comprehensive API specs with detailed endpoint documentation
+- **Authentication Documentation**: OAuth2 Google authentication for User Service, API key authentication for analytics
+- **Interactive Testing**: Direct API testing capability from Swagger UI interface
+- **Role-Based Access Documentation**: Clear documentation of student, teacher, and admin endpoints
+
+#### 🔍 **Comprehensive Endpoint Coverage**
+- **User Service Endpoints**: Authentication, user management, role operations
+- **Course Service Endpoints**: Courses API with pagination/filtering/sorting, enrollments, analytics
+- **Async Operations**: `/generateReport` endpoint with async pattern documentation
+- **Analytics API**: `/api/analytics` with API key requirement and query parameters
+- **HATEOAS Links**: Documented hypermedia links in API responses
+
+#### 🛡️ **Security & Authentication**
+- **OAuth2 Flows**: Complete OAuth2 authorization code flow documentation
+- **API Key Authentication**: Analytics endpoint protected with configurable API key
+- **Session Management**: Cookie-based session authentication documentation
+
+### Changed
+- **UI Customization**: Removed top navigation bar from Swagger UI pages for cleaner interface
+- **Blueprint Registration**: Fixed Swagger UI blueprint registration to prevent URL prefix duplication
+- **Endpoint Corrections**: Corrected analytics endpoint path documentation and routing
+
+### Technical Details
+- **Flask-Swagger-UI**: Integrated v4.11.1 for interactive documentation
+- **OpenAPI Specification**: Full compliance with OpenAPI 3.0 standard
+- **Docker Integration**: Container rebuilds to include swagger_spec.py files
+- **Configuration**: Custom Swagger UI parameters for enhanced user experience
+
 ## [0.4.0] - 2025-09-30 - Milestone 4: REST API Design
 
 ### Added
