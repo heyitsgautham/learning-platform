@@ -20,6 +20,33 @@ def get_instructor_details(instructor_id):
         print(f"Error fetching instructor details: {e}")
         return None
 
+def add_hateoas_links(course_dict, base_url):
+    """Add HATEOAS links to course dictionary"""
+    course_id = course_dict['id']
+    course_dict['_links'] = {
+        'self': {
+            'href': f"{base_url}/courses/{course_id}",
+            'method': 'GET'
+        },
+        'update': {
+            'href': f"{base_url}/courses/{course_id}",
+            'method': 'PUT'
+        },
+        'delete': {
+            'href': f"{base_url}/courses/{course_id}",
+            'method': 'DELETE'
+        },
+        'enroll': {
+            'href': f"{base_url}/courses/{course_id}/enroll",
+            'method': 'POST'
+        },
+        'instructor': {
+            'href': f"{USER_SERVICE_URL}/api/users/{course_dict['instructor_id']}",
+            'method': 'GET'
+        }
+    }
+    return course_dict
+
 @courses_bp.route('/courses', methods=['GET'])
 def get_courses():
     """Get all courses with pagination, filtering, and sorting"""
@@ -57,7 +84,10 @@ def get_courses():
     pagination = query.paginate(page=page, per_page=limit, error_out=False)
     courses = pagination.items
     
-    # Enrich courses with instructor details from User Service
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
+    # Enrich courses with instructor details from User Service and add HATEOAS links
     enriched_courses = []
     for course in courses:
         course_dict = course.to_dict()
@@ -66,9 +96,13 @@ def get_courses():
             course_dict['instructor'] = instructor
         else:
             course_dict['instructor'] = {'id': course.instructor_id, 'name': 'Unknown Instructor'}
+        
+        # Add HATEOAS links
+        course_dict = add_hateoas_links(course_dict, base_url)
         enriched_courses.append(course_dict)
     
-    return jsonify({
+    # Prepare response with HATEOAS links for pagination
+    response_data = {
         'courses': enriched_courses,
         'pagination': {
             'page': page,
@@ -81,8 +115,43 @@ def get_courses():
         'filters': {
             'category': category,
             'sort': sort
+        },
+        '_links': {
+            'self': {
+                'href': request.url,
+                'method': 'GET'
+            },
+            'create': {
+                'href': f"{base_url}/courses",
+                'method': 'POST'
+            }
         }
-    })
+    }
+    
+    # Add pagination links
+    if pagination.has_next:
+        next_url = request.base_url + f"?page={page + 1}&limit={limit}"
+        if category:
+            next_url += f"&category={category}"
+        if sort != 'id_asc':
+            next_url += f"&sort={sort}"
+        response_data['_links']['next'] = {
+            'href': next_url,
+            'method': 'GET'
+        }
+    
+    if pagination.has_prev:
+        prev_url = request.base_url + f"?page={page - 1}&limit={limit}"
+        if category:
+            prev_url += f"&category={category}"
+        if sort != 'id_asc':
+            prev_url += f"&sort={sort}"
+        response_data['_links']['prev'] = {
+            'href': prev_url,
+            'method': 'GET'
+        }
+    
+    return jsonify(response_data)
 
 @courses_bp.route('/courses', methods=['POST'])
 def create_course():
@@ -108,9 +177,13 @@ def create_course():
     db.session.add(new_course)
     db.session.commit()
     
-    # Enrich with instructor details
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
+    # Enrich with instructor details and HATEOAS links
     course_dict = new_course.to_dict()
     course_dict['instructor'] = instructor
+    course_dict = add_hateoas_links(course_dict, base_url)
     
     return jsonify({
         'message': 'Course created successfully',
@@ -123,12 +196,18 @@ def get_course(course_id):
     course = Course.query.get_or_404(course_id)
     course_dict = course.to_dict()
     
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
     # Enrich with instructor details
     instructor = get_instructor_details(course.instructor_id)
     if instructor:
         course_dict['instructor'] = instructor
     else:
         course_dict['instructor'] = {'id': course.instructor_id, 'name': 'Unknown Instructor'}
+    
+    # Add HATEOAS links
+    course_dict = add_hateoas_links(course_dict, base_url)
     
     return jsonify({'course': course_dict})
 
@@ -155,6 +234,9 @@ def update_course(course_id):
     
     db.session.commit()
     
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
     # Enrich with instructor details
     course_dict = course.to_dict()
     instructor = get_instructor_details(course.instructor_id)
@@ -162,6 +244,9 @@ def update_course(course_id):
         course_dict['instructor'] = instructor
     else:
         course_dict['instructor'] = {'id': course.instructor_id, 'name': 'Unknown Instructor'}
+    
+    # Add HATEOAS links
+    course_dict = add_hateoas_links(course_dict, base_url)
     
     return jsonify({
         'message': 'Course updated successfully',
@@ -215,9 +300,29 @@ def enroll_student(course_id):
     db.session.add(enrollment)
     db.session.commit()
     
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
+    # Add HATEOAS links to enrollment response
+    enrollment_dict = enrollment.to_dict()
+    enrollment_dict['_links'] = {
+        'self': {
+            'href': f"{base_url}/enrollments/student/{student_id}",
+            'method': 'GET'
+        },
+        'course': {
+            'href': f"{base_url}/courses/{course_id}",
+            'method': 'GET'
+        },
+        'student': {
+            'href': f"{USER_SERVICE_URL}/api/users/{student_id}",
+            'method': 'GET'
+        }
+    }
+    
     return jsonify({
         'message': 'Student enrolled successfully',
-        'enrollment': enrollment.to_dict()
+        'enrollment': enrollment_dict
     }), 201
 
 @courses_bp.route('/enrollments/student/<int:student_id>', methods=['GET'])
@@ -225,23 +330,56 @@ def get_student_enrollments(student_id):
     """Get all enrollments for a specific student"""
     enrollments = Enrollment.query.filter_by(student_id=student_id).all()
     
-    # Enrich with course details
+    # Get base URL for HATEOAS links
+    base_url = request.url_root.rstrip('/')
+    
+    # Enrich with course details and HATEOAS links
     enriched_enrollments = []
     for enrollment in enrollments:
         enrollment_dict = enrollment.to_dict()
-        enrollment_dict['course'] = enrollment.course.to_dict()
+        course_dict = enrollment.course.to_dict()
         
         # Add instructor details
         instructor = get_instructor_details(enrollment.course.instructor_id)
         if instructor:
-            enrollment_dict['course']['instructor'] = instructor
+            course_dict['instructor'] = instructor
         else:
-            enrollment_dict['course']['instructor'] = {'id': enrollment.course.instructor_id, 'name': 'Unknown Instructor'}
+            course_dict['instructor'] = {'id': enrollment.course.instructor_id, 'name': 'Unknown Instructor'}
+        
+        # Add HATEOAS links to course
+        course_dict = add_hateoas_links(course_dict, base_url)
+        enrollment_dict['course'] = course_dict
+        
+        # Add HATEOAS links to enrollment
+        enrollment_dict['_links'] = {
+            'self': {
+                'href': f"{base_url}/enrollments/student/{student_id}",
+                'method': 'GET'
+            },
+            'course': {
+                'href': f"{base_url}/courses/{enrollment.course_id}",
+                'method': 'GET'
+            },
+            'student': {
+                'href': f"{USER_SERVICE_URL}/api/users/{student_id}",
+                'method': 'GET'
+            }
+        }
         
         enriched_enrollments.append(enrollment_dict)
     
     return jsonify({
         'enrollments': enriched_enrollments,
         'student_id': student_id,
-        'total': len(enriched_enrollments)
+        'total': len(enriched_enrollments),
+        '_links': {
+            'self': {
+                'href': f"{base_url}/enrollments/student/{student_id}",
+                'method': 'GET'
+            },
+            'student': {
+                'href': f"{USER_SERVICE_URL}/api/users/{student_id}",
+                'method': 'GET'
+            }
+        }
     })

@@ -6,6 +6,66 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.4.0] - 2025-09-30 - Milestone 4: REST API Design
+
+### Added
+
+#### 🔍 **Advanced Query Parameters**
+- **Pagination**: `GET /courses?page=1&limit=5`
+  - Configurable page size and page number
+  - Comprehensive pagination metadata (total, pages, has_next, has_prev)
+  - Default values: page=1, limit=10
+- **Filtering**: `GET /courses?category=tech`
+  - Category-based course filtering
+  - Extensible filtering system for future filters
+- **Sorting**: `GET /courses?sort=rating_desc`
+  - Multiple sort options: title_asc, title_desc, rating_asc, rating_desc, id_asc, id_desc
+  - Default sorting by id_asc
+- **Combined Queries**: `GET /courses?page=1&limit=5&category=tech&sort=rating_desc`
+  - All query parameters work together seamlessly
+
+#### 🔗 **HATEOAS (Hypermedia as the Engine of Application State)**
+- **Course Resources**: Each course response includes navigational links
+  - `self`: Link to get the specific course
+  - `update`: Link to update the course (PUT)
+  - `delete`: Link to delete the course (DELETE)
+  - `enroll`: Link to enroll in the course (POST)
+  - `instructor`: Link to instructor details in User Service
+- **Collection Resources**: Course list responses include collection links
+  - `self`: Link to current page with all applied filters
+  - `create`: Link to create new courses
+  - `next`: Link to next page (when available)
+  - `prev`: Link to previous page (when available)
+- **Enrollment Resources**: Enrollment responses include related links
+  - `self`: Link to student enrollments
+  - `course`: Link to the enrolled course
+  - `student`: Link to student details in User Service
+
+#### 🌐 **REST Best Practices**
+- **HTTP Verbs**: Proper use of GET, POST, PUT, DELETE
+- **Resource-Based URLs**: Clear, hierarchical URL structure
+- **Consistent Response Formats**: Standardized JSON responses
+- **Error Handling**: Appropriate HTTP status codes (200, 201, 400, 404)
+- **Content Negotiation**: JSON content-type handling
+
+#### 📊 **Enhanced API Responses**
+- **Enriched Course Data**: Instructor details fetched from User Service
+- **Pagination Metadata**: Complete pagination information in responses
+- **Filter Context**: Current filter and sort parameters in responses
+- **Link Relations**: Self-descriptive API with discoverable actions
+
+### Changed
+- Course Service API now fully supports pagination, filtering, and sorting
+- All course-related endpoints now include HATEOAS links
+- Enhanced response structures with metadata and navigation
+
+### Technical Details
+- **Pagination**: SQLAlchemy pagination with configurable limits
+- **Filtering**: Dynamic query building with category filters
+- **Sorting**: Database-level ordering for performance
+- **HATEOAS**: Dynamic link generation based on request context
+- **Inter-Service**: Course Service calls User Service for instructor data enrichment
+
 ## [0.3.0] - 2025-09-30 - Milestone 3: Microservices Split
 
 ### Added
