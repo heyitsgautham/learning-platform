@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
-from models.database import db, Course, Enrollment
+from services.course_service.models.database import db, Course, Enrollment
 import requests
 import os
+from datetime import datetime
 
 courses_bp = Blueprint('courses', __name__)
 
@@ -383,3 +384,51 @@ def get_student_enrollments(student_id):
             }
         }
     })
+
+@courses_bp.route('/analytics', methods=['GET'])
+def analytics():
+    """
+    Analytics endpoint that requires valid API key.
+    Get analytics data about courses and enrollments.
+    """
+    # Check for API key
+    api_key = request.args.get('apiKey')
+    expected_key = os.getenv('ANALYTICS_API_KEY', 'validKey')
+    
+    if not api_key or api_key != expected_key:
+        return jsonify({'error': 'Valid API key required. Use ?apiKey=validKey'}), 401
+    
+    # Generate analytics data
+    total_courses = Course.query.count()
+    total_enrollments = Enrollment.query.count()
+    
+    # Course categories breakdown
+    course_categories = {}
+    courses = Course.query.all()
+    for course in courses:
+        category = course.category or 'uncategorized'
+        course_categories[category] = course_categories.get(category, 0) + 1
+    
+    # Average rating
+    courses_with_rating = Course.query.filter(Course.rating.isnot(None)).all()
+    avg_rating = sum(c.rating for c in courses_with_rating) / len(courses_with_rating) if courses_with_rating else 0
+    
+    analytics_data = {
+        'total_courses': total_courses,
+        'total_enrollments': total_enrollments,
+        'course_categories': course_categories,
+        'average_rating': round(avg_rating, 2),
+        'timestamp': datetime.now().isoformat(),
+        '_links': {
+            'self': {
+                'href': request.url,
+                'method': 'GET'
+            },
+            'courses': {
+                'href': f"{request.url_root.rstrip('/')}/api/courses",
+                'method': 'GET'
+            }
+        }
+    }
+    
+    return jsonify(analytics_data)

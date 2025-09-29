@@ -1,9 +1,12 @@
 from flask import Flask, request, jsonify
 from datetime import datetime
 import os
+import asyncio
 from dotenv import load_dotenv
+from flask_swagger_ui import get_swaggerui_blueprint
 from models.database import db, init_db
 from routes.courses import courses_bp
+from swagger_spec import get_swagger_spec
 
 # Load environment variables
 load_dotenv()
@@ -21,6 +24,33 @@ def create_app():
     # Initialize database
     init_db(app)
     
+    # Swagger UI configuration
+    SWAGGER_URL = '/docs'
+    API_URL = '/swagger.json'
+    
+    # Create Swagger UI blueprint
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        SWAGGER_URL,
+        API_URL,
+        config={
+            'app_name': "Course Service API",
+            'supportedSubmitMethods': ['get', 'post', 'put', 'delete'],
+            'docExpansion': 'list',
+            'defaultModelsExpandDepth': 2,
+            'defaultModelExpandDepth': 2,
+            'swagger_ui_parameters': {'topbar': False}
+        }
+    )
+    
+    # Register Swagger UI blueprint (no url_prefix needed since it's already in SWAGGER_URL)
+    app.register_blueprint(swaggerui_blueprint)
+    
+    # Swagger spec endpoint
+    @app.route('/swagger.json')
+    def swagger_spec():
+        """Return the OpenAPI specification"""
+        return jsonify(get_swagger_spec())
+    
     # Global middleware: Log every request
     @app.before_request
     def log_request():
@@ -30,6 +60,27 @@ def create_app():
     
     # Register blueprints
     app.register_blueprint(courses_bp, url_prefix='/api')
+    
+    # Async generateReport route
+    @app.route('/generateReport', methods=['GET'])
+    def generate_report():
+        """
+        Simulate a long-running task using asyncio to prevent blocking other requests.
+        This demonstrates async patterns in the Flask application.
+        """
+        async def process_report():
+            # Simulate long-running task (e.g., processing assignments)
+            await asyncio.sleep(3)  # 3 second delay to simulate processing
+            return {"status": "Report generated", "timestamp": datetime.now().isoformat()}
+        
+        # Run the async task in a thread pool to prevent blocking Flask
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(process_report())
+            return jsonify(result)
+        finally:
+            loop.close()
     
     # Health check route
     @app.route('/')
