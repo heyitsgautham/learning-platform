@@ -1,11 +1,39 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from sqlalchemy import text
+from datetime import datetime
 import time
 
 # Initialize SQLAlchemy instance
 db = SQLAlchemy()
 migrate = Migrate()
+
+class User(db.Model):
+    """User model for storing user information and roles"""
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False)
+    google_id = db.Column(db.String(255), unique=True, nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.Enum('student', 'teacher', 'admin', name='user_roles'), 
+                     nullable=False, default='student')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<User {self.email} - {self.role}>'
+    
+    def to_dict(self):
+        """Convert user object to dictionary"""
+        return {
+            'id': self.id,
+            'email': self.email,
+            'name': self.name,
+            'role': self.role,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
 
 def init_db(app):
     """Initialize database with Flask app"""
